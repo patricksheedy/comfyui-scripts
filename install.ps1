@@ -8,22 +8,25 @@ param(
 Set-StrictMode -Version Latest
 Install-Module 7Zip4Powershell -Scope CurrentUser -Force
 
-$pathSharedApps             = Join-Path -Path $PSScriptRoot       -ChildPath "..\apps"
-$pathSharedReleases         = Join-Path -Path $PSScriptRoot       -ChildPath "..\releases"
-$pathSharedModels           = Join-Path -Path $PSScriptRoot       -ChildPath "..\models"
-$pathSharedOutputs          = Join-Path -Path $PSScriptRoot       -ChildPath "..\outputs"
-$pathSharedWorkflows        = Join-Path -Path $PSScriptRoot       -ChildPath "..\workflows"
-$pathSharedIncludesPath     = Join-Path -Path $pathSharedReleases -ChildPath "python_3.12.7_include_libs"
-$pathSharedIncludesArchive  = Join-Path -Path $pathSharedReleases -ChildPath "python_3.12.7_include_libs.zip"
-$pathDestination            = Join-Path -Path $pathSharedApps     -ChildPath $InstallName
-$pathRunCommand             = Join-Path -Path $pathDestination    -ChildPath "run.cmd"
-$pathWorkflow               = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\user\default\workflows"
-$pathModels                 = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\models"
-$pathCustomNodes            = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\custom_nodes"
-$pathCustomNodeManager      = Join-Path -Path $pathCustomNodes    -ChildPath "ComfyUI-Manager"
+$pathSharedApps            = Join-Path -Path $PSScriptRoot       -ChildPath "..\apps"
+$pathSharedReleases        = Join-Path -Path $PSScriptRoot       -ChildPath "..\releases"
+$pathSharedModels          = Join-Path -Path $PSScriptRoot       -ChildPath "..\models"
+$pathSharedInputs          = Join-Path -Path $PSScriptRoot       -ChildPath "..\inputs"
+$pathSharedOutputs         = Join-Path -Path $PSScriptRoot       -ChildPath "..\outputs"
+$pathSharedWorkflows       = Join-Path -Path $PSScriptRoot       -ChildPath "..\workflows"
+$pathSharedIncludesPath    = Join-Path -Path $pathSharedReleases -ChildPath "python_3.12.7_include_libs"
+$pathSharedIncludesArchive = Join-Path -Path $pathSharedReleases -ChildPath "python_3.12.7_include_libs.zip"
+$pathDestination           = Join-Path -Path $pathSharedApps     -ChildPath $InstallName
+$pathRunCommand            = Join-Path -Path $pathDestination    -ChildPath "run.cmd"
+$pathWorkflow              = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\user\default\workflows"
+$pathModels                = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\models"
+$pathInputs                = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\input"
+$pathCustomNodes           = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\custom_nodes"
+$pathCustomNodeManager     = Join-Path -Path $pathCustomNodes    -ChildPath "ComfyUI-Manager"
+$pathEmbeddedScriptPath    = Join-Path -Path $pathDestination    -ChildPath "python_embeded\Scripts"
 
 function Add-SharedDirectories {
-  $directories = @($pathSharedApps, $pathSharedReleases, $pathSharedModels, $pathSharedOutputs, $pathSharedWorkflows)
+  $directories = @($pathSharedApps, $pathSharedReleases, $pathSharedModels, $pathSharedOutputs, $pathSharedWorkflows, $pathSharedInputs)
 
   foreach ($directory in $directories) {
     if (-not (Test-Path -Path $directory)) {
@@ -85,12 +88,18 @@ function Install-CustomNode {
 }
 
 function Add-RunCommand {
-  param([string]$DestinationFile, [string[]]$ComfyuiParameter)
+  param([string]$DestinationFile, [string]$EmbeddedScriptPath, [string[]]$ComfyuiParameter)
 
   $comfyBaseCommand = ".\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build"
   $command = $comfyBaseCommand + " " + ($ComfyuiParameter -join " ")
 
-  Set-Content -Path $DestinationFile -Value $command
+  $commandFile = @"
+    SETLOCAL
+    set PATH=%PATH%;$EmbeddedScriptPath
+    $command
+"@
+
+  Set-Content -Path $DestinationFile -Value $commandFile
 }
 
 function Add-SymbolicLink {
@@ -140,21 +149,13 @@ if (Test-Path -Path $pathDestination) {
 Install-ComfyUI $releaseExtracted $pathDestination
 Install-CustomNode "https://github.com/Comfy-Org/ComfyUI-Manager" $pathCustomNodeManager
 
-Add-RunCommand -DestinationFile $pathRunCommand -ComfyuiParameter @("--output-directory", $pathSharedOutputs)
-
-if (-not (Test-Path -Path $pathWorkflow)) {
-  New-Item -Path $pathWorkflow -ItemType Directory | Out-Null
-}
-
-Add-SymbolicLink -Path $pathWorkflow -TargetPath $pathSharedWorkflows
+Add-RunCommand -DestinationFile $pathRunCommand -EmbeddedScriptPath $pathEmbeddedScriptPath -ComfyuiParameter @("--output-directory", $pathSharedOutputs)
 
 Copy-TopDirectories -SourcePath $pathModels -DestinationPath $pathSharedModels
 
-if (Test-Path -Path $pathModels) {
-  Remove-Item -Path $pathModels -Recurse -Force
-}
-
-Add-SymbolicLink -Path $pathModels -TargetPath $pathSharedModels
+Add-SymbolicLink -Path $pathWorkflow -TargetPath $pathSharedWorkflows
+Add-SymbolicLink -Path $pathInputs   -TargetPath $pathSharedInputs
+Add-SymbolicLink -Path $pathModels   -TargetPath $pathSharedModels
 
 Remove-FilesInDirectory -Directory $pathDestination -Filenames @("README_VERY_IMPORTANT.txt", "run_cpu.bat", "run_nvidia_gpu.bat", "run_nvidia_gpu_fast_fp16_accumulation.bat")
 
