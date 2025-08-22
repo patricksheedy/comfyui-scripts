@@ -22,8 +22,8 @@ $pathWorkflow              = Join-Path -Path $pathDestination    -ChildPath "Com
 $pathModels                = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\models"
 $pathInputs                = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\input"
 $pathCustomNodes           = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\custom_nodes"
-$pathCustomNodeManager     = Join-Path -Path $pathCustomNodes    -ChildPath "ComfyUI-Manager"
 $pathEmbeddedScriptPath    = Join-Path -Path $pathDestination    -ChildPath "python_embeded\Scripts"
+$pythonExePath             = Join-Path -Path $pathDestination    -ChildPath "python_embeded\python.exe"
 
 function Add-SharedDirectories {
   $directories = @($pathSharedApps, $pathSharedReleases, $pathSharedModels, $pathSharedOutputs, $pathSharedWorkflows, $pathSharedInputs)
@@ -82,9 +82,14 @@ function Install-ComfyUI {
 }
 
 function Install-CustomNode {
-  param([string]$GitUrl, [string]$DestinationPath)
+  param([string]$GitUrl)
 
-  git clone --quiet --depth 1 $GitUrl $DestinationPath
+  $repoName = ($GitUrl.TrimEnd('/') -split '/')[-1]
+  $pathDestinationFull = Join-Path -Path $pathCustomNodes -ChildPath $repoName
+
+  git clone --quiet --depth 1 $GitUrl $pathDestinationFull
+
+  & $pythonExePath -s -m pip install --no-warn-script-location -r "$pathDestinationFull\requirements.txt"
 }
 
 function Add-RunCommand {
@@ -147,7 +152,17 @@ if (Test-Path -Path $pathDestination) {
 }
 
 Install-ComfyUI $releaseExtracted $pathDestination
-Install-CustomNode "https://github.com/Comfy-Org/ComfyUI-Manager" $pathCustomNodeManager
+
+Install-CustomNode "https://github.com/Comfy-Org/ComfyUI-Manager"
+Install-CustomNode "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
+Install-CustomNode "https://github.com/kijai/ComfyUI-WanVideoWrapper"
+Install-CustomNode "https://github.com/kijai/ComfyUI-HunyuanVideoWrapper"
+Install-CustomNode "https://github.com/AIDC-AI/ComfyUI-Copilot"
+Install-CustomNode "https://github.com/city96/ComfyUI-GGUF"
+Install-CustomNode "https://github.com/rgthree/rgthree-comfy"
+Install-CustomNode "https://github.com/kijai/ComfyUI-KJNodes"
+Install-CustomNode "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
+Install-CustomNode "https://github.com/ltdrdata/ComfyUI-Inspire-Pack"
 
 Add-RunCommand -DestinationFile $pathRunCommand -EmbeddedScriptPath $pathEmbeddedScriptPath -ComfyuiParameter @("--output-directory", $pathSharedOutputs)
 
