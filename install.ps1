@@ -81,6 +81,14 @@ function Install-ComfyUI {
   Copy-Item -Path $pathSharedLibs    -Destination $pathEmbededPython -Recurse -Force -Container -ErrorAction Stop
 }
 
+function Install-Packages {
+  & $pythonExePath -s -m pip uninstall --yes torch torchvision torchaudio triton-windows onnxruntime-gpu xformers sageattention onnx
+
+  & $pythonExePath -s -m pip install --no-warn-script-location torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+  & $pythonExePath -s -m pip install --no-warn-script-location triton-windows onnxruntime-gpu 
+  & $pythonExePath -s -m pip install --no-warn-script-location xformers sageattention onnx
+}
+
 function Install-CustomNode {
   param([string]$GitUrl)
 
@@ -95,7 +103,7 @@ function Install-CustomNode {
 function Add-RunCommand {
   param([string]$DestinationFile, [string]$EmbeddedScriptPath, [string[]]$ComfyuiParameter)
 
-  $comfyBaseCommand = ".\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build"
+  $comfyBaseCommand = ".\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --use-sage-attention"
   $command = $comfyBaseCommand + " " + ($ComfyuiParameter -join " ")
 
   $commandFile = @"
@@ -153,6 +161,8 @@ if (Test-Path -Path $pathDestination) {
 
 Install-ComfyUI $releaseExtracted $pathDestination
 
+Install-Packages
+
 Install-CustomNode "https://github.com/Comfy-Org/ComfyUI-Manager"
 Install-CustomNode "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
 Install-CustomNode "https://github.com/kijai/ComfyUI-WanVideoWrapper"
@@ -163,6 +173,9 @@ Install-CustomNode "https://github.com/rgthree/rgthree-comfy"
 Install-CustomNode "https://github.com/kijai/ComfyUI-KJNodes"
 Install-CustomNode "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
 Install-CustomNode "https://github.com/ltdrdata/ComfyUI-Inspire-Pack"
+Install-CustomNode "https://github.com/ssitu/ComfyUI_UltimateSDUpscale"
+Install-CustomNode "https://github.com/yolain/ComfyUI-Easy-Use"
+Install-CustomNode "https://github.com/ClownsharkBatwing/RES4LYF"
 
 Add-RunCommand -DestinationFile $pathRunCommand -EmbeddedScriptPath $pathEmbeddedScriptPath -ComfyuiParameter @("--output-directory", $pathSharedOutputs)
 
