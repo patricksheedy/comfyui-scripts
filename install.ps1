@@ -14,11 +14,14 @@ $pathSharedModels          = Join-Path -Path $PSScriptRoot       -ChildPath "..\
 $pathSharedInputs          = Join-Path -Path $PSScriptRoot       -ChildPath "..\inputs"
 $pathSharedOutputs         = Join-Path -Path $PSScriptRoot       -ChildPath "..\outputs"
 $pathSharedWorkflows       = Join-Path -Path $PSScriptRoot       -ChildPath "..\workflows"
+$pathSharedWildcards       = Join-Path -Path $PSScriptRoot       -ChildPath "..\wildcards"
 $pathSharedIncludesPath    = Join-Path -Path $pathSharedReleases -ChildPath "python_3.12.7_include_libs"
 $pathSharedIncludesArchive = Join-Path -Path $pathSharedReleases -ChildPath "python_3.12.7_include_libs.zip"
+
 $pathDestination           = Join-Path -Path $pathSharedApps     -ChildPath $InstallName
 $pathRunCommand            = Join-Path -Path $pathDestination    -ChildPath "run.cmd"
 $pathWorkflow              = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\user\default\workflows"
+$pathWildcards             = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\custom_nodes\ComfyUI-Impact-Pack\custom_wildcards"
 $pathModels                = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\models"
 $pathInputs                = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\input"
 $pathCustomNodes           = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\custom_nodes"
@@ -137,6 +140,40 @@ function Copy-TopDirectories {
   }
 }
 
+function Copy-CustomFiles {
+  param(
+    [string]$RelativeSourcePath,
+    [string]$DestinationPath,
+    [string[]]$FilePatterns = @("*")
+  )
+
+  # Resolve source path relative to the script root
+  $sourcePath = Join-Path -Path $PSScriptRoot -ChildPath $RelativeSourcePath
+
+  if (-not (Test-Path -Path $sourcePath)) {
+    Write-Warning "Source path does not exist: $sourcePath"
+    return
+  }
+
+  foreach ($pattern in $FilePatterns) {
+    Get-ChildItem -Path $sourcePath -File -Recurse -Filter $pattern | ForEach-Object {
+      $relative = Resolve-Path -Path $_.FullName | ForEach-Object {
+        # compute relative path from sourcePath
+        $_.Path.Substring($sourcePath.Length).TrimStart('\\','/')
+      }
+
+      $target = Join-Path -Path $DestinationPath -ChildPath $relative
+      $targetDir = Split-Path -Path $target -Parent
+
+      if (-not (Test-Path -Path $targetDir)) {
+        New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+      }
+
+      Copy-Item -Path $_.FullName -Destination $target -Force -ErrorAction Stop
+    }
+  }
+}
+
 function Remove-FilesInDirectory {
   param([string]$Directory, [string[]]$Filenames)
 
@@ -181,9 +218,10 @@ Add-RunCommand -DestinationFile $pathRunCommand -EmbeddedScriptPath $pathEmbedde
 
 Copy-TopDirectories -SourcePath $pathModels -DestinationPath $pathSharedModels
 
-Add-SymbolicLink -Path $pathWorkflow -TargetPath $pathSharedWorkflows
-Add-SymbolicLink -Path $pathInputs   -TargetPath $pathSharedInputs
-Add-SymbolicLink -Path $pathModels   -TargetPath $pathSharedModels
+Add-SymbolicLink -Path $pathWorkflow  -TargetPath $pathSharedWorkflows
+Add-SymbolicLink -Path $pathInputs    -TargetPath $pathSharedInputs
+Add-SymbolicLink -Path $pathModels    -TargetPath $pathSharedModels
+Add-SymbolicLink -Path $pathWildcards -TargetPath $pathSharedWildcards
 
 Remove-FilesInDirectory -Directory $pathDestination -Filenames @("README_VERY_IMPORTANT.txt", "run_cpu.bat", "run_nvidia_gpu.bat", "run_nvidia_gpu_fast_fp16_accumulation.bat")
 
