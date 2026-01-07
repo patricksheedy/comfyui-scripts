@@ -1,8 +1,14 @@
 [CmdletBinding()]
 
 param(
-  [Parameter(Mandatory=$true)]
-  [string]$InstallName
+  [Parameter(Mandatory = $true)]
+  [string]$InstallName,
+
+  [Parameter(Mandatory = $false)]
+  [switch]$SkipCustomNodes,
+
+  [Parameter(Mandatory = $false)]
+  [switch]$SkipSharedDirectories
 )
 
 Set-StrictMode -Version Latest
@@ -18,15 +24,15 @@ $pathSharedWildcards       = Join-Path -Path $PSScriptRoot       -ChildPath "..\
 $pathSharedIncludesPath    = Join-Path -Path $pathSharedReleases -ChildPath "python_3.12.7_include_libs"
 $pathSharedIncludesArchive = Join-Path -Path $pathSharedReleases -ChildPath "python_3.12.7_include_libs.zip"
 
-$pathDestination           = Join-Path -Path $pathSharedApps     -ChildPath $InstallName
-$pathRunCommand            = Join-Path -Path $pathDestination    -ChildPath "run.cmd"
-$pathWorkflow              = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\user\default\workflows"
-$pathWildcards             = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\custom_nodes\ComfyUI-Impact-Pack\custom_wildcards"
-$pathModels                = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\models"
-$pathInputs                = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\input"
-$pathCustomNodes           = Join-Path -Path $pathDestination    -ChildPath "ComfyUI\custom_nodes"
-$pathEmbeddedScriptPath    = Join-Path -Path $pathDestination    -ChildPath "python_embeded\Scripts"
-$pythonExePath             = Join-Path -Path $pathDestination    -ChildPath "python_embeded\python.exe"
+$pathDestination        = Join-Path -Path $pathSharedApps  -ChildPath $InstallName
+$pathRunCommand         = Join-Path -Path $pathDestination -ChildPath "run.cmd"
+$pathWorkflow           = Join-Path -Path $pathDestination -ChildPath "ComfyUI\user\default\workflows"
+$pathWildcards          = Join-Path -Path $pathDestination -ChildPath "ComfyUI\custom_nodes\ComfyUI-Impact-Pack\custom_wildcards"
+$pathModels             = Join-Path -Path $pathDestination -ChildPath "ComfyUI\models"
+$pathInputs             = Join-Path -Path $pathDestination -ChildPath "ComfyUI\input"
+$pathCustomNodes        = Join-Path -Path $pathDestination -ChildPath "ComfyUI\custom_nodes"
+$pathEmbeddedScriptPath = Join-Path -Path $pathDestination -ChildPath "python_embeded\Scripts"
+$pythonExePath          = Join-Path -Path $pathDestination -ChildPath "python_embeded\python.exe"
 
 function Add-SharedDirectories {
   $directories = @($pathSharedApps, $pathSharedReleases, $pathSharedModels, $pathSharedOutputs, $pathSharedWorkflows, $pathSharedInputs)
@@ -43,7 +49,7 @@ function Get-LatestReleaseInfo { return Invoke-RestMethod -Uri "https://api.gith
 function Get-ReleaseFiles { 
   param([PSCustomObject]$Release)
 
-  $asset            = $Release.assets | Select-Object -First 1
+  $asset            = $Release.assets | Where-Object { $_.name -eq "ComfyUI_windows_portable_nvidia.7z" } | Select-Object -First 1
   $version          = $Release.tag_name
   $releaseRoot      = Join-Path -Path $pathSharedReleases -ChildPath $version
   $releaseArchive   = Join-Path -Path $releaseRoot -ChildPath "release.7z"
@@ -75,7 +81,7 @@ function Get-ReleaseFiles {
 function Install-ComfyUI {
   param([string]$SourcePath, [string]$DestinationPath)
 
-  $pathEmbededPython = Join-Path -Path $DestinationPath -ChildPath "python_embeded"
+  $pathEmbededPython = Join-Path -Path $DestinationPath        -ChildPath "python_embeded"
   $pathSharedInclude = Join-Path -Path $pathSharedIncludesPath -ChildPath "include"
   $pathSharedLibs    = Join-Path -Path $pathSharedIncludesPath -ChildPath "libs"
 
@@ -159,7 +165,7 @@ function Copy-CustomFiles {
     Get-ChildItem -Path $sourcePath -File -Recurse -Filter $pattern | ForEach-Object {
       $relative = Resolve-Path -Path $_.FullName | ForEach-Object {
         # compute relative path from sourcePath
-        $_.Path.Substring($sourcePath.Length).TrimStart('\\','/')
+        $_.Path.Substring($sourcePath.Length).TrimStart('\\', '/')
       }
 
       $target = Join-Path -Path $DestinationPath -ChildPath $relative
@@ -179,7 +185,7 @@ function Remove-FilesInDirectory {
 
   foreach ($filename in $Filenames) {
     $filePath = Join-Path -Path $Directory -ChildPath $filename
-    
+
     if (Test-Path -Path $filePath) {
       Remove-Item -Path $filePath -Force
     }
@@ -197,31 +203,34 @@ if (Test-Path -Path $pathDestination) {
 }
 
 Install-ComfyUI $releaseExtracted $pathDestination
-
 Install-Packages
-
 Install-CustomNode "https://github.com/Comfy-Org/ComfyUI-Manager"
-Install-CustomNode "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
-Install-CustomNode "https://github.com/kijai/ComfyUI-WanVideoWrapper"
-Install-CustomNode "https://github.com/kijai/ComfyUI-HunyuanVideoWrapper"
-Install-CustomNode "https://github.com/AIDC-AI/ComfyUI-Copilot"
-Install-CustomNode "https://github.com/city96/ComfyUI-GGUF"
-Install-CustomNode "https://github.com/rgthree/rgthree-comfy"
-Install-CustomNode "https://github.com/kijai/ComfyUI-KJNodes"
-Install-CustomNode "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
-Install-CustomNode "https://github.com/ltdrdata/ComfyUI-Inspire-Pack"
-Install-CustomNode "https://github.com/ssitu/ComfyUI_UltimateSDUpscale"
-Install-CustomNode "https://github.com/yolain/ComfyUI-Easy-Use"
-Install-CustomNode "https://github.com/ClownsharkBatwing/RES4LYF"
 
 Add-RunCommand -DestinationFile $pathRunCommand -EmbeddedScriptPath $pathEmbeddedScriptPath -ComfyuiParameter @("--output-directory", $pathSharedOutputs)
 
-Copy-TopDirectories -SourcePath $pathModels -DestinationPath $pathSharedModels
+if (-not $SkipCustomNodes) {
+  Install-CustomNode "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
+  Install-CustomNode "https://github.com/kijai/ComfyUI-WanVideoWrapper"
+  Install-CustomNode "https://github.com/kijai/ComfyUI-HunyuanVideoWrapper"
+  Install-CustomNode "https://github.com/AIDC-AI/ComfyUI-Copilot"
+  Install-CustomNode "https://github.com/city96/ComfyUI-GGUF"
+  Install-CustomNode "https://github.com/rgthree/rgthree-comfy"
+  Install-CustomNode "https://github.com/kijai/ComfyUI-KJNodes"
+  Install-CustomNode "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
+  Install-CustomNode "https://github.com/ltdrdata/ComfyUI-Inspire-Pack"
+  Install-CustomNode "https://github.com/ssitu/ComfyUI_UltimateSDUpscale"
+  Install-CustomNode "https://github.com/yolain/ComfyUI-Easy-Use"
+  Install-CustomNode "https://github.com/ClownsharkBatwing/RES4LYF"
+}
 
-Add-SymbolicLink -Path $pathWorkflow  -TargetPath $pathSharedWorkflows
-Add-SymbolicLink -Path $pathInputs    -TargetPath $pathSharedInputs
-Add-SymbolicLink -Path $pathModels    -TargetPath $pathSharedModels
-Add-SymbolicLink -Path $pathWildcards -TargetPath $pathSharedWildcards
+if (-not $SkipSharedDirectories) {
+  Copy-TopDirectories -SourcePath $pathModels -DestinationPath $pathSharedModels
+
+  Add-SymbolicLink -Path $pathWorkflow  -TargetPath $pathSharedWorkflows
+  Add-SymbolicLink -Path $pathInputs    -TargetPath $pathSharedInputs
+  Add-SymbolicLink -Path $pathModels    -TargetPath $pathSharedModels
+  Add-SymbolicLink -Path $pathWildcards -TargetPath $pathSharedWildcards
+}
 
 Remove-FilesInDirectory -Directory $pathDestination -Filenames @("README_VERY_IMPORTANT.txt", "run_cpu.bat", "run_nvidia_gpu.bat", "run_nvidia_gpu_fast_fp16_accumulation.bat")
 
