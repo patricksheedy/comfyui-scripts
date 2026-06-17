@@ -14,8 +14,7 @@ pip install comfy-cli setuptools matrix-nio
 
 comfy --workspace="$WORKSPACE" --skip-prompt install --nvidia
 
-# Disabled: comfyui-inspire-pack comfyui-impact-subpack ComfyUI_UltimateSDUpscale
-comfy node install ComfyUI-KJNodes rgthree-comfy ComfyUI-Easy-Use comfyui-impact-pack ComfyUI_essentials ComfyUI-GGUF comfyui-videohelpersuite comfyui-inspire-pack comfyui-impact-subpack ComfyUI_UltimateSDUpscale was-ns https://github.com/ClownsharkBatwing/RES4LYF
+comfy node install ComfyUI-KJNodes rgthree-comfy ComfyUI-Easy-Use comfyui-impact-pack ComfyUI_essentials ComfyUI-GGUF comfyui-videohelpersuite comfyui-impact-subpack ComfyUI_UltimateSDUpscale was-ns  https://github.com/ClownsharkBatwing/RES4LYF
 
 rm -rf "$WORKSPACE/models"
 ln -s ~/apps/comfy/common/models "$WORKSPACE/models"
