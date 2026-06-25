@@ -3,7 +3,19 @@ set -euo pipefail
 
 VERSION="$(date +%Y.%m.%d-%H%M)"
 ENV="comfy-$VERSION"
-WORKSPACE="$HOME/apps/comfy/installs/$VERSION"
+WORKSPACE="../../installs/$VERSION"
+
+CreateLinkedDirectory() {
+  local directory1=$1
+  local directory2=$2
+
+  if [ ! -e $directory1 ]; then
+    cp -r $directory2 $directory1
+  fi
+
+  rm -rf $directory2
+  ln -s $directory1 $directory2
+}
 
 conda create --name "$ENV" python=3.13 -y
 eval "$(conda shell.bash hook)"
@@ -17,14 +29,10 @@ comfy --workspace="$WORKSPACE" --skip-prompt install --nvidia
 comfy node install ComfyUI-KJNodes rgthree-comfy ComfyUI-Easy-Use comfyui-impact-pack ComfyUI_essentials ComfyUI-GGUF comfyui-videohelpersuite comfyui-impact-subpack ComfyUI_UltimateSDUpscale was-ns
 comfy node install https://github.com/ClownsharkBatwing/RES4LYF
 
-rm -rf "$WORKSPACE/models"
-ln -s ~/apps/comfy/common/models "$WORKSPACE/models"
-
-mkdir -p "$WORKSPACE/user/default"
-ln -s ~/apps/comfy/common/workflows "$WORKSPACE/user/default/workflows"
-
-rm -rf "$WORKSPACE/output"
-ln -s ~/apps/comfy/common/output "$WORKSPACE/output"
+mkdir -p "$WORKSPACE/user/default/workflows"
+CreateLinkedDirectory ../models    "$WORKSPACE/models"
+CreateLinkedDirectory ../output    "$WORKSPACE/output"
+CreateLinkedDirectory ../workflows "$WORKSPACE/user/default/workflows"
 
 LAUNCH_SCRIPT="$WORKSPACE/run.sh"
 

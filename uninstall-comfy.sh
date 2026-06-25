@@ -1,6 +1,6 @@
 #!/bin/bash
 
-INSTALLS_DIR="$HOME/apps/comfy/installs"
+INSTALLS_DIR="../../installs"
 
 if [ $# -eq 0 ]; then
     if [ ! -d "$INSTALLS_DIR" ]; then
