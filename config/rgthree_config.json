@@ -1,0 +1,14 @@
+{
+  "features": {
+    "group_header_fast_toggle": {
+      "enabled": true
+    },
+    "import_individual_nodes": {
+      "enabled": false
+    },
+    "menu_auto_nest": {
+      "subdirs": true,
+      "threshold": 2
+    }
+  }
+}

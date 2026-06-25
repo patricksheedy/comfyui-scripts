@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# CD to the script location so relative paths work
+cd "$(dirname "$(readlink -f "$0")")"
+
 VERSION="$(date +%Y.%m.%d-%H%M)"
 ENV="comfy-$VERSION"
 WORKSPACE="../../installs/$VERSION"
@@ -28,6 +31,8 @@ comfy --workspace="$WORKSPACE" --skip-prompt install --nvidia
 
 comfy node install ComfyUI-KJNodes rgthree-comfy ComfyUI-Easy-Use comfyui-impact-pack ComfyUI_essentials ComfyUI-GGUF comfyui-videohelpersuite comfyui-impact-subpack ComfyUI_UltimateSDUpscale was-ns
 comfy node install https://github.com/ClownsharkBatwing/RES4LYF
+
+cp config/rgthree_config.json "$WORKSPACE/custom_nodes/rgthree-comfy"
 
 mkdir -p "$WORKSPACE/user/default/workflows"
 CreateLinkedDirectory ../models    "$WORKSPACE/models"
