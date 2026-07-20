@@ -1,24 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+CreateLinkedDirectory() {
+  local directory1
+  directory1="$(realpath -m "$1")"
+
+  local directory2
+  directory2="$(realpath -m "$2")"
+
+  # If target doesn't exist, copy from source or create a new folder
+  if [ ! -d "$directory1" ]; then
+    mkdir -p "$(dirname "$directory1")"
+    if [ -d "$directory2" ]; then
+      cp -r "$directory2" "$directory1"
+    else
+      mkdir -p "$directory1"
+    fi
+  fi
+
+  rm -rf "$directory2"
+  ln -s "$directory1" "$directory2"
+}
+
 # CD to the script location so relative paths work
 cd "$(dirname "$(readlink -f "$0")")"
 
 VERSION="$(date +%Y.%m.%d-%H%M)"
 ENV="comfy-$VERSION"
-WORKSPACE="../../installs/$VERSION"
-
-CreateLinkedDirectory() {
-  local directory1=$1
-  local directory2=$2
-
-  if [ ! -e $directory1 ]; then
-    cp -r $directory2 $directory1
-  fi
-
-  rm -rf $directory2
-  ln -s $directory1 $directory2
-}
+WORKSPACE="$(realpath -m "../../installs/$VERSION")"
 
 conda create --name "$ENV" python=3.13 -y
 eval "$(conda shell.bash hook)"
@@ -43,6 +52,7 @@ LAUNCH_SCRIPT="$WORKSPACE/run.sh"
 
 
 cat << EOF > "$LAUNCH_SCRIPT"
+#!/usr/bin/env bash
 set -euo pipefail
 
 eval "\$(conda shell.bash hook)"
