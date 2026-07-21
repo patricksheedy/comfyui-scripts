@@ -38,7 +38,7 @@ pip install comfy-cli setuptools sageattention matrix-nio
 
 comfy --workspace="$WORKSPACE" --skip-prompt install --nvidia
 
-comfy node install ComfyUI-KJNodes rgthree-comfy ComfyUI-Easy-Use comfyui-impact-pack ComfyUI_essentials ComfyUI-GGUF comfyui-videohelpersuite comfyui-impact-subpack ComfyUI_UltimateSDUpscale was-ns
+comfy node install ComfyUI-KJNodes rgthree-comfy ComfyUI-Easy-Use comfyui-impact-pack ComfyUI_essentials ComfyUI-GGUF comfyui-videohelpersuite comfyui-impact-subpack ComfyUI_UltimateSDUpscale
 comfy node install https://github.com/ClownsharkBatwing/RES4LYF
 
 cp config/rgthree_config.json "$WORKSPACE/custom_nodes/rgthree-comfy"
