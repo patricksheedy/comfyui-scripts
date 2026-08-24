@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 
 CreateLinkedDirectory() {
   local directory1
@@ -22,43 +22,93 @@ CreateLinkedDirectory() {
   ln -s "$directory1" "$directory2"
 }
 
+BuildSageAttention() {
+  local SAGEATTENTION_WORKSPACE="/tmp/sageattention"
+  local export MAX_JOBS=$(nproc)
+  local export NVCC_APPEND_FLAGS="--threads $(nproc)"
+
+  rm -rf "$SAGEATTENTION_WORKSPACE"
+  git clone --depth 1 https://github.com/thu-ml/SageAttention.git "$SAGEATTENTION_WORKSPACE"
+  pushd "$SAGEATTENTION_WORKSPACE"
+  pip install --no-build-isolation --no-cache-dir .
+  popd
+  rm -rf "$SAGEATTENTION_WORKSPACE"
+}
+
 # CD to the script location so relative paths work
 cd "$(dirname "$(readlink -f "$0")")"
 
+# Parse command line flags
+INSTALL_SAGE=false
+for arg in "$@"; do
+  case $arg in
+    --install-sage)
+      INSTALL_SAGE=true
+      shift
+      ;;
+  esac
+done
+
+# Setup Variables
 VERSION="$(date +%Y.%m.%d-%H%M)"
 ENV="comfy-$VERSION"
 WORKSPACE="$(realpath -m "../../installs/$VERSION")"
+COMMON="$(realpath -m "..")"
 
-conda create --name "$ENV" python=3.13 -y
+# Create and activate conda environment
+conda create --name "$ENV" python=3.12 -y
 eval "$(conda shell.bash hook)"
 conda activate "$ENV"
 
-# Matix-nio is an optional package used in ComfyUI Manager. Adding it here silences a warning that appears on launch.
-pip install comfy-cli setuptools sageattention matrix-nio
+# Install pip packages (matrix-nio is just to remove some warnings on startup)
+pip install comfy-cli triton matrix-nio
 
-comfy --workspace="$WORKSPACE" --skip-prompt install --nvidia
+if [ "$INSTALL_SAGE" = true ]; then
+  # Install CUDA compiler for Sage Attention
+  conda install -c conda-forge cuda-toolkit=13.0 -y
 
-comfy node install ComfyUI-KJNodes rgthree-comfy ComfyUI-Easy-Use comfyui-impact-pack ComfyUI_essentials ComfyUI-GGUF comfyui-videohelpersuite comfyui-impact-subpack ComfyUI_UltimateSDUpscale
-comfy node install https://github.com/ClownsharkBatwing/RES4LYF
+  # Install additional build tools
+  pip install ninja setuptools wheel packaging
 
+  # Install Pytorch for CUDA 13.0
+  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+
+  BuildSageAttention
+else
+  echo "Skipping SageAttention installation."
+fi
+
+# Install comfy
+COMFY_INSTALL_ARGS=(--nvidia --fast-deps)
+
+if [ "$INSTALL_SAGE" = true ]; then
+  COMFY_INSTALL_ARGS+=(--skip-torch-or-directml)
+fi
+
+echo comfy --workspace="$WORKSPACE" --skip-prompt install "${COMFY_INSTALL_ARGS[@]}"
+
+comfy --workspace="$WORKSPACE" install "${COMFY_INSTALL_ARGS[@]}"
+
+# Install custom nodes
+comfy node install --uv-compile --exit-on-fail ComfyUI-KJNodes rgthree-comfy ComfyUI-Easy-Use comfyui-impact-pack comfyui-impact-subpack ComfyUI_essentials comfyui-videohelpersuite ComfyUI_UltimateSDUpscale https://github.com/ClownsharkBatwing/RES4LYF https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3
+
+# RGThree setting to create nested file selector in nodes
 cp config/rgthree_config.json "$WORKSPACE/custom_nodes/rgthree-comfy"
 
 mkdir -p "$WORKSPACE/user/default/workflows"
-CreateLinkedDirectory ../models    "$WORKSPACE/models"
-CreateLinkedDirectory ../output    "$WORKSPACE/output"
-CreateLinkedDirectory ../workflows "$WORKSPACE/user/default/workflows"
+CreateLinkedDirectory "$COMMON/models"    "$WORKSPACE/models"
+CreateLinkedDirectory "$COMMON/workflows" "$WORKSPACE/user/default/workflows"
 
 LAUNCH_SCRIPT="$WORKSPACE/run.sh"
 
-
 cat << EOF > "$LAUNCH_SCRIPT"
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 
 eval "\$(conda shell.bash hook)"
 conda activate "$ENV"
 
-comfy --workspace="$WORKSPACE" launch
+comfy --workspace="$WORKSPACE" launch -- --output-directory "$COMMON/output" --input-directory "$COMMON/input"
 EOF
 
 chmod +x "$LAUNCH_SCRIPT"
