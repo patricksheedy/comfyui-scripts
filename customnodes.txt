@@ -1,0 +1,5 @@
+# Custom nodes to install, one per line.
+ComfyUI-KJNodes
+rgthree-comfy
+comfyui-videohelpersuite
+https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3
